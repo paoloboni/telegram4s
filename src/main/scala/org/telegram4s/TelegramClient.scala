@@ -1,3 +1,24 @@
+/*
+ * Copyright (c) 2019 Paolo Boni
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 package org.telegram4s
 
 import java.util.logging.Level
@@ -27,7 +48,10 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWriter](kernelComm: KernelComm)(implicit F: Effect[F]) {
+class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWriter](kernelComm: KernelComm)(
+    implicit
+    F: Effect[F]
+) {
 
   def getUpdatesStream: F[Stream[F, TLAbsUpdates]] =
     F.delay(for {
@@ -69,7 +93,10 @@ class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWrite
     } yield result
   }
 
-  def getChannelHistoryStream(channelId: Int, channelAccessHash: Long, channelTitle: String, offset: Int = 0): F[Stream[F, TLAbsMessage]] =
+  def getChannelHistoryStream(channelId: Int,
+                              channelAccessHash: Long,
+                              channelTitle: String,
+                              offset: Int = 0): F[Stream[F, TLAbsMessage]] =
     for {
       _      <- LogWriter.debug(s"Retrieving history for channel '$channelTitle' with offset $offset")
       result <- getChannelHistory(channelId, channelAccessHash, offset)
@@ -83,13 +110,14 @@ class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWrite
             case m: TLMessageEmpty   => m.getId
             case m: TLMessageService => m.getId
           }
-          .map(id => Stream.eval(getChannelHistoryStream(channelId, channelAccessHash, channelTitle, id)).flatMap(identity))
+          .map(id =>
+            Stream.eval(getChannelHistoryStream(channelId, channelAccessHash, channelTitle, id)).flatMap(identity))
           .getOrElse(Stream.empty)
 
   def doRpcCallAsync[Result <: TLObject](request: TLMethod[Result])(implicit E: MonadError[F, Throwable]): F[Result] =
     for {
       _ <- LogWriter.debug(s"RPC async call to: $request")
-      async = Async[F].async[Result] { cb =>
+      async = F.async[Result] { cb =>
         kernelComm.doRpcCallAsync(
           request.asInstanceOf[TLMethod[TLObject]],
           new TelegramFunctionCallback[TLObject] {
@@ -142,8 +170,11 @@ object TelegramClient {
       kernelComm
     }
 
-    def doAuthentication(apiKey: Int, apiHash: String, apiState: MemoryApiState, botConfig: BotConfig, kernelComm: KernelComm)(
-        implicit log: LogWriter[F]): F[KernelComm] =
+    def doAuthentication(apiKey: Int,
+                         apiHash: String,
+                         apiState: MemoryApiState,
+                         botConfig: BotConfig,
+                         kernelComm: KernelComm)(implicit log: LogWriter[F]): F[KernelComm] =
       F.pure(
           new KernelAuth(
             apiState,
