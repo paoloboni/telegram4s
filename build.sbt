@@ -4,6 +4,7 @@ scalaVersion := "2.12.8"
 
 lazy val root = (project in file("."))
   .settings(
+    organization := "io.github.paoloboni",
     libraryDependencies ++= Seq(
       "org.telegram" % "telegramapi" % "66.2",
       "co.fs2" %% "fs2-core" % "1.0.4",
@@ -21,3 +22,21 @@ lazy val root = (project in file("."))
     scalafmtOnCompile in ThisBuild := true
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+import ReleaseTransformations._
+
+releaseCrossBuild := false
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  releaseStepCommand("publishSigned"),
+  setNextVersion,
+  commitNextVersion,
+  releaseStepCommand("sonatypeReleaseAll"),
+  pushChanges
+)

@@ -2,6 +2,9 @@ lazy val contributors = Seq(
   "paoloboni" -> "Paolo Boni"
 )
 
+useGpg := true
+pgpSecretRing := pgpPublicRing.value
+
 publishTo := sonatypePublishTo.value
 
 sonatypeProfileName := "io.github.paoloboni"
@@ -24,3 +27,5 @@ scmInfo := Some(
   )
 )
 headerLicense := Some(HeaderLicense.MIT("2019", "Paolo Boni"))
+licenses := Seq("MIT" -> url("http://opensource.org/licenses/MIT"))
+homepage := Some(url("https://github.com/paoloboni/telegram4s"))
