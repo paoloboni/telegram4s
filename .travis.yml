@@ -5,3 +5,8 @@ scala:
 
 script:
   - sbt ++$TRAVIS_SCALA_VERSION scalafmt::test test:scalafmt::test sbt:scalafmt::test headerCheck test:headerCheck test
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt
