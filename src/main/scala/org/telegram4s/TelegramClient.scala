@@ -30,6 +30,7 @@ import fs2._
 import fs2.concurrent.Queue
 import log.effect.LogWriter
 import log.effect.fs2.SyncLogWriter._
+import org.slf4j._
 import org.telegram.api.chat.TLAbsChat
 import org.telegram.api.engine.{LoggerInterface, RpcException, TimeoutException}
 import org.telegram.api.functions.messages.{TLRequestMessagesGetAllChats, TLRequestMessagesGetHistory}
@@ -206,25 +207,23 @@ object TelegramClient {
       override def isBot: Boolean         = false
     }
 
-    def configureLogging() =
-      for {
-        mtprotoLogger     <- log4sLog[F]("MTPROTO")
-        telegramApiLogger <- log4sLog[F]("TELEGRAMAPI")
-        done <- F.pure {
-          BotLogger.setLevel(Level.OFF)
-          Logger.registerInterface(new LogInterface() {
-            override def w(tag: String, message: String): Unit = mtprotoLogger.warn(message)
-            override def d(tag: String, message: String): Unit = mtprotoLogger.debug(message)
-            override def e(tag: String, message: String): Unit = mtprotoLogger.error(message)
-            override def e(tag: String, t: Throwable): Unit    = mtprotoLogger.error(t)
-          })
-          org.telegram.api.engine.Logger.registerInterface(new LoggerInterface() {
-            override def w(tag: String, message: String): Unit = telegramApiLogger.warn(message)
-            override def d(tag: String, message: String): Unit = telegramApiLogger.debug(message)
-            override def e(tag: String, t: Throwable): Unit    = telegramApiLogger.error(t)
-          })
-        }
-      } yield done
+    val mtprotoLogger     = LoggerFactory.getLogger("MTPROTO")
+    val telegramApiLogger = LoggerFactory.getLogger("TELEGRAMAPI")
+
+    def configureLogging() = F.pure {
+      BotLogger.setLevel(Level.OFF)
+      Logger.registerInterface(new LogInterface() {
+        override def w(tag: String, message: String): Unit = mtprotoLogger.warn(message)
+        override def d(tag: String, message: String): Unit = mtprotoLogger.debug(message)
+        override def e(tag: String, message: String): Unit = mtprotoLogger.error(message)
+        override def e(tag: String, t: Throwable): Unit    = mtprotoLogger.error("error", t)
+      })
+      org.telegram.api.engine.Logger.registerInterface(new LoggerInterface() {
+        override def w(tag: String, message: String): Unit = telegramApiLogger.warn(message)
+        override def d(tag: String, message: String): Unit = telegramApiLogger.debug(message)
+        override def e(tag: String, t: Throwable): Unit    = telegramApiLogger.error("error", t)
+      })
+    }
 
     for {
       logger              <- log4sLog[F](classOf[TelegramClient[F]])
