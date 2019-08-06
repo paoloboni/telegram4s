@@ -29,13 +29,7 @@ import org.scalatest.{FreeSpec, Matchers}
 import org.telegram.api.updates.TLAbsUpdates
 import org.telegram4s.{Arbitraries, Env}
 
-class Telegram4sMainHandlerTest
-    extends FreeSpec
-    with Env
-    with MockitoSugar
-    with Matchers
-    with GeneratorDrivenPropertyChecks
-    with Arbitraries {
+class Telegram4sMainHandlerTest extends FreeSpec with Env with MockitoSugar with Matchers with GeneratorDrivenPropertyChecks with Arbitraries {
 
   "it should feed a queue with updates signalled by the client" in {
 

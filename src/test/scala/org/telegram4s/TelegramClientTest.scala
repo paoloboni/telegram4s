@@ -58,7 +58,8 @@ class TelegramClientTest
 
   implicit val mainHandlerFactory: MainHandlerFactory[IO] = new MainHandlerFactory[IO] {
     override def create(kernelComm: IKernelComm, queue: Queue[IO, Either[Throwable, TLAbsUpdates]])(
-        implicit F: Effect[IO]): IO[Telegram4sMainHandler] = {
+        implicit F: Effect[IO]
+    ): IO[Telegram4sMainHandler] = {
       handlerStub = new Telegram4sMainHandler(mock[IKernelComm], mock[UpdatesHandlerBase]) {
         override def onUpdate(updates: TLAbsUpdates): Unit = queue.enqueue1(Right(updates)).unsafeRunSync()
       }

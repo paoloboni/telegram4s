@@ -94,26 +94,21 @@ class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWrite
     } yield result
   }
 
-  def getChannelHistoryStream(channelId: Int,
-                              channelAccessHash: Long,
-                              channelTitle: String,
-                              offset: Int = 0): F[Stream[F, TLAbsMessage]] =
+  def getChannelHistoryStream(channelId: Int, channelAccessHash: Long, channelTitle: String, offset: Int = 0): F[Stream[F, TLAbsMessage]] =
     for {
       _      <- LogWriter.debug(s"Retrieving history for channel '$channelTitle' with offset $offset")
       result <- getChannelHistory(channelId, channelAccessHash, offset)
       messages      = result.getMessages.asScala
       oldestMessage = messages.lastOption
-    } yield
-      Stream.fromIterator(result.getMessages.asScala.toIterator) ++
-        oldestMessage
-          .map {
-            case m: TLMessage        => m.getId
-            case m: TLMessageEmpty   => m.getId
-            case m: TLMessageService => m.getId
-          }
-          .map(id =>
-            Stream.eval(getChannelHistoryStream(channelId, channelAccessHash, channelTitle, id)).flatMap(identity))
-          .getOrElse(Stream.empty)
+    } yield Stream.fromIterator(result.getMessages.asScala.toIterator) ++
+      oldestMessage
+        .map {
+          case m: TLMessage        => m.getId
+          case m: TLMessageEmpty   => m.getId
+          case m: TLMessageService => m.getId
+        }
+        .map(id => Stream.eval(getChannelHistoryStream(channelId, channelAccessHash, channelTitle, id)).flatMap(identity))
+        .getOrElse(Stream.empty)
 
   def doRpcCallAsync[Result <: TLObject](request: TLMethod[Result])(implicit E: MonadError[F, Throwable]): F[Result] =
     for {
@@ -158,7 +153,8 @@ object TelegramClient {
       clientApiHash: String,
       phoneNumber: String,
       stateFilePath: String,
-      getAuthCode: F[String])(implicit F: Monad[F], E: MonadError[F, Throwable]): F[TelegramClient[F]] = {
+      getAuthCode: F[String]
+  )(implicit F: Monad[F], E: MonadError[F, Throwable]): F[TelegramClient[F]] = {
 
     def createApiState(filePath: String) =
       F.pure(new MemoryApiState(filePath))
@@ -171,11 +167,9 @@ object TelegramClient {
       kernelComm
     }
 
-    def doAuthentication(apiKey: Int,
-                         apiHash: String,
-                         apiState: MemoryApiState,
-                         botConfig: BotConfig,
-                         kernelComm: KernelComm)(implicit log: LogWriter[F]): F[KernelComm] =
+    def doAuthentication(apiKey: Int, apiHash: String, apiState: MemoryApiState, botConfig: BotConfig, kernelComm: KernelComm)(
+        implicit log: LogWriter[F]
+    ): F[KernelComm] =
       F.pure(
           new KernelAuth(
             apiState,
@@ -183,7 +177,8 @@ object TelegramClient {
             kernelComm,
             apiKey,
             apiHash
-          ))
+          )
+        )
         .flatMap {
           case kernelAuth if kernelAuth.getApiState.isAuthenticated =>
             F.pure(kernelComm)

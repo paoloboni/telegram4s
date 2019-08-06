@@ -4,7 +4,7 @@ scala:
   - 2.12.8
 
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION scalafmt::test test:scalafmt::test sbt:scalafmt::test headerCheck test:headerCheck test
+  - sbt ++$TRAVIS_SCALA_VERSION scalafmtCheck test:scalafmtCheck scalafmtSbtCheck headerCheck test:headerCheck test
 
 cache:
   directories:

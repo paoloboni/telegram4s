@@ -31,8 +31,7 @@ import org.telegram.bot.kernel.differenceparameters.DifferenceParametersService
 import scala.language.higherKinds
 import scala.util.Try
 
-class Telegram4sMainHandler(kernelComm: IKernelComm, updatesHandler: UpdatesHandlerBase)
-    extends MainHandler(kernelComm, updatesHandler) {
+class Telegram4sMainHandler(kernelComm: IKernelComm, updatesHandler: UpdatesHandlerBase) extends MainHandler(kernelComm, updatesHandler) {
   override def onUpdate(updates: TLAbsUpdates): Unit = super.onUpdate(updates)
 }
 
