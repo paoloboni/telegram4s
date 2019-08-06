@@ -21,7 +21,8 @@
 
 package org.telegram.bot.kernel
 
-import cats.effect.{Effect, IO}
+import cats.effect.Effect
+import cats.syntax.all._
 import fs2.concurrent.Queue
 import org.telegram.api.updates.TLAbsUpdates
 import org.telegram.bot.handlers.{DefaultUpdatesHandler, UpdatesHandlerBase}
@@ -44,12 +45,9 @@ class MainHandlerFactory[F[_]] {
     val differenceParametersService = new DifferenceParametersService(dbManager)
     new Telegram4sMainHandler(kernelComm, new DefaultUpdatesHandler(kernelComm, differenceParametersService, dbManager)) {
       override def onUpdate(updates: TLAbsUpdates): Unit = {
-        F.runAsync(queue.enqueue1 {
-            Try {
-              super.onUpdate(updates)
-              updates
-            }.toEither
-          })(_ => IO.unit)
+        F.toIO {
+            F.fromEither(Try(super.onUpdate(updates)).toEither) *> queue.enqueue1(updates.asRight)
+          }
           .unsafeRunSync()
       }
     }
