@@ -32,16 +32,16 @@ import log.effect.LogWriter
 import log.effect.fs2.SyncLogWriter._
 import org.slf4j._
 import org.telegram.api.chat.TLAbsChat
-import org.telegram.api.engine.{LoggerInterface, RpcException, TimeoutException}
+import org.telegram.api.engine.{LoggerInterface, RpcException}
 import org.telegram.api.functions.messages.{TLRequestMessagesGetAllChats, TLRequestMessagesGetHistory}
 import org.telegram.api.input.peer.TLInputPeerChannel
 import org.telegram.api.message.{TLAbsMessage, TLMessage, TLMessageEmpty, TLMessageService}
 import org.telegram.api.updates.TLAbsUpdates
-import org.telegram.bot.TelegramFunctionCallback
+import org.telegram.bot.GenericErrorTelegramFunctionCallback
 import org.telegram.bot.kernel.engine.MemoryApiState
 import org.telegram.bot.kernel.{MainHandlerFactory, _}
 import org.telegram.bot.services.BotLogger
-import org.telegram.bot.structure.{BotConfig, LoginStatus}
+import org.telegram.bot.structure.{BotConfig, IUser, LoginStatus}
 import org.telegram.mtproto.log.{LogInterface, Logger}
 import org.telegram.tl.{TLIntVector, TLMethod, TLObject}
 
@@ -72,6 +72,21 @@ class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWrite
       _        <- LogWriter.info("Retrieving user chats...")
       response <- doRpcCallAsync(request)
     } yield response.getChats.asScala.toList
+
+  def sendMessage(user: IUser, message: String): F[TLAbsUpdates] =
+    for {
+      _ <- LogWriter.debug(s"Sending message '$message' to user ${user.getUserId}")
+      done <- F.async[TLAbsUpdates] { cb =>
+        kernelComm.sendMessageAsync(
+          user,
+          message,
+          new GenericErrorTelegramFunctionCallback[TLAbsUpdates] {
+            override def onSuccess(result: TLAbsUpdates): Unit = cb(Right(result))
+            override def onError(e: Throwable): Unit           = cb(Left(e))
+          }
+        )
+      }
+    } yield done
 
   private def getChannelHistory(channelId: Int, channelAccessHash: Long, offset: Int = 0) = {
     def getInputPeer(accessHash: Long, channelId: Int) = F.pure {
@@ -116,11 +131,9 @@ class TelegramClient[F[_]: ConcurrentEffect: Timer: MainHandlerFactory: LogWrite
       async = F.async[Result] { cb =>
         kernelComm.doRpcCallAsync(
           request.asInstanceOf[TLMethod[TLObject]],
-          new TelegramFunctionCallback[TLObject] {
-            override def onSuccess(result: TLObject): Unit    = cb(Right(result.asInstanceOf[Result]))
-            override def onRpcError(e: RpcException): Unit    = cb(Left(e))
-            override def onTimeout(e: TimeoutException): Unit = cb(Left(e))
-            override def onUnknownError(e: Throwable): Unit   = cb(Left(e))
+          new GenericErrorTelegramFunctionCallback[TLObject] {
+            override def onSuccess(result: TLObject): Unit = cb(Right(result.asInstanceOf[Result]))
+            override def onError(e: Throwable): Unit       = cb(Left(e))
           }
         )
       }
@@ -227,7 +240,7 @@ object TelegramClient {
       kernelComm          <- createKernelComm(clientApiKey, apiState)
       kernelCommAfterAuth <- doAuthentication(clientApiKey, clientApiHash, apiState, botConfig, kernelComm)(logger)
     } yield {
-      implicit val l = logger
+      implicit val l: LogWriter[F] = logger
       new TelegramClient(kernelCommAfterAuth)
     }
   }

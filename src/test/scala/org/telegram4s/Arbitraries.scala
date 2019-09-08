@@ -21,6 +21,7 @@
 
 package org.telegram4s
 
+import java.lang
 import java.util.concurrent.TimeUnit
 
 import org.scalacheck.Arbitrary.arbitrary
@@ -29,6 +30,7 @@ import org.scalatest.mockito.MockitoSugar
 import org.telegram.api.chat.TLChat
 import org.telegram.api.message.TLMessage
 import org.telegram.api.updates.TLAbsUpdates
+import org.telegram.bot.structure.IUser
 import org.telegram.tl.TLObject
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
@@ -46,5 +48,15 @@ trait Arbitraries { self: MockitoSugar =>
     for {
       millis <- Gen.choose[Long](0, Int.MaxValue)
     } yield Duration(millis, TimeUnit.MILLISECONDS)
+  }
+
+  implicit val arbitraryIUser: Arbitrary[IUser] = Arbitrary {
+    for {
+      userId   <- arbitrary[Int]
+      userHash <- arbitrary[Long]
+    } yield new IUser {
+      override def getUserId: Int         = userId
+      override def getUserHash: lang.Long = userHash
+    }
   }
 }

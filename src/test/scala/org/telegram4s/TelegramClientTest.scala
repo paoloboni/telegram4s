@@ -27,7 +27,7 @@ import fs2.concurrent.Queue
 import org.scalatest.concurrent.{Eventually, ScalaFutures}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.{EitherValues, FreeSpec, Matchers}
 import org.telegram.api.chat.{TLAbsChat, TLChat}
 import org.telegram.api.engine.storage.AbsApiState
 import org.telegram.api.engine.{RpcException, TimeoutException}
@@ -38,6 +38,7 @@ import org.telegram.api.updates.TLAbsUpdates
 import org.telegram.bot.TelegramFunctionCallback
 import org.telegram.bot.handlers.UpdatesHandlerBase
 import org.telegram.bot.kernel.{IKernelComm, KernelComm, MainHandlerFactory, Telegram4sMainHandler}
+import org.telegram.bot.structure.IUser
 import org.telegram.tl.{TLMethod, TLObject, TLVector}
 
 import scala.collection.JavaConverters._
@@ -52,7 +53,8 @@ class TelegramClientTest
     with Eventually
     with ScalaFutures
     with GeneratorDrivenPropertyChecks
-    with Arbitraries {
+    with Arbitraries
+    with EitherValues {
 
   var handlerStub: Telegram4sMainHandler = _
 
@@ -208,6 +210,32 @@ class TelegramClientTest
       eventually {
         results should contain theSameElementsInOrderAs expectedUpdates
       }
+    }
+  }
+
+  "it should successfully send a message to a user" in {
+    forAll { (user: IUser, message: String, result: TLAbsUpdates) =>
+      val kernelCommStub = new KernelComm(0, mock[AbsApiState]) {
+        override def sendMessageAsync(user: IUser, message: String, callback: TelegramFunctionCallback[TLAbsUpdates]): Unit =
+          callback.onSuccess(result)
+      }
+      val client = new TelegramClient[IO](kernelCommStub)
+
+      client.sendMessage(user, message).unsafeRunSync() shouldBe result
+    }
+  }
+
+  "it should return an error when sending message fails" in {
+    forAll { (user: IUser, message: String) =>
+      val error = new RpcException(1, "message failed")
+
+      val kernelCommStub = new KernelComm(0, mock[AbsApiState]) {
+        override def sendMessageAsync(user: IUser, message: String, callback: TelegramFunctionCallback[TLAbsUpdates]): Unit =
+          callback.onRpcError(error)
+      }
+      val client = new TelegramClient[IO](kernelCommStub)
+
+      client.sendMessage(user, message).attempt.unsafeRunSync().left.value shouldBe error
     }
   }
 }
